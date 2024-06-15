@@ -1,0 +1,138 @@
+import kivy
+from kivy.app import App
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.button import Button
+from kivy.uix.image import Image
+from kivy.uix.filechooser import FileChooserIconView
+from kivy.uix.popup import Popup
+from kivy.uix.label import Label
+from kivy.uix.scrollview import ScrollView
+from kivy.uix.gridlayout import GridLayout
+from kivy.uix.togglebutton import ToggleButton
+from kivy.core.window import Window
+
+from PIL import Image as PILImage
+from kivy.graphics.texture import Texture
+
+import os
+
+kivy.require('2.1.0')
+
+class OutfitApp(App):
+    def build(self):
+        self.pantalones = []
+        self.camisetas = []
+        self.zapatillas = []
+        
+        self.selected_pantalon = None
+        self.selected_camiseta = None
+        self.selected_zapatilla = None
+
+        main_layout = BoxLayout(orientation='vertical')
+        
+        upload_layout = BoxLayout(size_hint=(1, 0.1))
+        
+        btn_upload_pantalon = Button(text='Subir Pantalón')
+        btn_upload_pantalon.bind(on_press=self.show_file_chooser('pantalon'))
+        
+        btn_upload_camiseta = Button(text='Subir Camiseta')
+        btn_upload_camiseta.bind(on_press=self.show_file_chooser('camiseta'))
+        
+        btn_upload_zapatilla = Button(text='Subir Zapatilla')
+        btn_upload_zapatilla.bind(on_press=self.show_file_chooser('zapatilla'))
+        
+        upload_layout.add_widget(btn_upload_pantalon)
+        upload_layout.add_widget(btn_upload_camiseta)
+        upload_layout.add_widget(btn_upload_zapatilla)
+        
+        main_layout.add_widget(upload_layout)
+        
+        self.scrollview = ScrollView()
+        self.grid_layout = GridLayout(cols=3, size_hint_y=None)
+        self.grid_layout.bind(minimum_height=self.grid_layout.setter('height'))
+        
+        self.scrollview.add_widget(self.grid_layout)
+        main_layout.add_widget(self.scrollview)
+        
+        self.selected_layout = BoxLayout(size_hint=(1, 0.3))
+        self.selected_pantalon_img = Image()
+        self.selected_camiseta_img = Image()
+        self.selected_zapatilla_img = Image()
+        
+        self.selected_layout.add_widget(self.selected_pantalon_img)
+        self.selected_layout.add_widget(self.selected_camiseta_img)
+        self.selected_layout.add_widget(self.selected_zapatilla_img)
+        
+        main_layout.add_widget(self.selected_layout)
+        
+        btn_combine = Button(text='Combinar Outfit', size_hint=(1, 0.1))
+        btn_combine.bind(on_press=self.combine_outfit)
+        
+        main_layout.add_widget(btn_combine)
+        
+        return main_layout
+
+    def show_file_chooser(self, tipo):
+        def callback(instance):
+            content = BoxLayout(orientation='vertical')
+            filechooser = FileChooserIconView()
+            filechooser.filters = ['*.png', '*.jpg', '*.jpeg']
+            
+            btn_select = Button(text="Seleccionar", size_hint_y=None, height=40)
+            btn_select.bind(on_press=lambda x: self.load_image(filechooser.path, filechooser.selection, tipo, popup))
+            
+            content.add_widget(filechooser)
+            content.add_widget(btn_select)
+            
+            popup = Popup(title="Seleccionar imagen", content(content), size_hint=(0.9, 0.9))
+            popup.open()
+            
+        return callback
+
+    def load_image(self, path, selection, tipo, popup):
+        if selection:
+            image_path = selection[0]
+            if tipo == 'pantalon':
+                self.pantalones.append(image_path)
+            elif tipo == 'camiseta':
+                self.camisetas.append(image_path)
+            elif tipo == 'zapatilla':
+                self.zapatillas.append(image_path)
+            
+            img = Image(source=image_path)
+            img.bind(on_press=lambda x: self.select_image(tipo, image_path))
+            self.grid_layout.add_widget(img)
+        
+        popup.dismiss()
+
+    def select_image(self, tipo, image_path):
+        pil_image = PILImage.open(image_path)
+        texture = self.pil_to_texture(pil_image)
+        
+        if tipo == 'pantalon':
+            self.selected_pantalon = image_path
+            self.selected_pantalon_img.texture = texture
+        elif tipo == 'camiseta':
+            self.selected_camiseta = image_path
+            self.selected_camiseta_img.texture = texture
+        elif tipo == 'zapatilla':
+            self.selected_zapatilla = image_path
+            self.selected_zapatilla_img.texture = texture
+
+    def pil_to_texture(self, pil_image):
+        pil_image = pil_image.convert('RGBA')
+        width, height = pil_image.size
+        texture = Texture.create(size=(width, height))
+        texture.blit_buffer(pil_image.tobytes(), colorfmt='rgba', bufferfmt='ubyte')
+        texture.flip_vertical()
+        return texture
+
+    def combine_outfit(self, instance):
+        if self.selected_pantalon and self.selected_camiseta and self.selected_zapatilla:
+            print(f'Outfit seleccionado: Pantalón: {self.selected_pantalon}, Camiseta: {self.selected_camiseta}, Zapatilla: {self.selected_zapatilla}')
+        else:
+            popup = Popup(title='Error', content=Label(text='Selecciona una prenda de cada tipo'), size_hint=(0.6, 0.3))
+            popup.open()
+
+if __name__ == '__main__':
+    OutfitApp().run()
